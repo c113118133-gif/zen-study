@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #f8fafc; 
+    --foreground: #334155; 
+    
+    --card: #ffffff;
+    --card-foreground: #334155;
+    
+    --primary: #818cf8; 
+    --primary-foreground: #ffffff;
+    
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    
+    --border: #e2e8f0;
+    
+    --radius: 1.5rem; 
+  }
+}
+
+@layer base {
+  body {
+   /* 改用標準 CSS 語法來讀取我們設定的顏色 */
+  background-color: var(--background);
+  color: var(--foreground);
+  
+  /* 保留其他正常的 Tailwind 類別 */
+  @apply antialiased min-h-screen relative overflow-x-hidden;
+  
+  /* 左上微藍、右下微紫的漸層背景 */
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(210, 100%, 88%, 0.5) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, hsla(270, 100%, 88%, 0.4) 0px, transparent 50%);
+  background-attachment: fixed;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 10px;
+  opacity: 0.2;
+}
