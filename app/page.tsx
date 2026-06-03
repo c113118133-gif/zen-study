@@ -161,7 +161,6 @@ export default function Home() {
       {/* 頂部標題區 */}
       <header className="flex flex-col gap-4 mt-8 mb-2">
         <div className="flex items-center gap-4 text-slate-400 text-sm font-medium tracking-widest">
-          <span>—— AI × 開發 · 2026</span>
         </div>
         <h1 className="text-6xl font-bold tracking-tight text-slate-700" style={{ fontFamily: 'serif' }}>
           ZenStudy<span className="text-indigo-400">.</span>
