@@ -29,7 +29,6 @@ export default function Home() {
       let currentNickname = "";
       
       if (!currentId) {
-        // 新手報到
         currentId = crypto.randomUUID();
         currentNickname = "學霸_" + currentId.substring(0, 4);
         localStorage.setItem("zenstudy_user_id", currentId);
@@ -39,38 +38,36 @@ export default function Home() {
           tomatoes: 0 
         }]);
       } else {
-        // 老朋友，去資料庫查他現在叫什麼名字
         const { data } = await supabase.from("study_profiles").select("nickname").eq("id", currentId).single();
         if (data) currentNickname = data.nickname;
       }
       
       setUserId(currentId);
       setMyNickname(currentNickname);
-      fetchLeaderboard();
     };
     initUser();
   }, []);
 
-  // === 2. 建立即時大廳 (Supabase Presence) ===
+  // === 2. 建立即時大廳 與 連動動態排行榜 ===
   useEffect(() => {
-    if (!userId || !myNickname) return; // 確定有名字才加入大廳
+    if (!userId || !myNickname) return;
 
-    // 建立一個名為 zenstudy_lobby 的廣播頻道
     const channel = supabase.channel('zenstudy_lobby', {
       config: { presence: { key: userId } },
     });
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        // 當有人加入或離開時，更新線上名單
         const state = channel.presenceState();
         const users = Object.values(state).map((presence: any) => presence[0]);
         setOnlineUsers(users);
         setIsConnected(true);
+        
+        // 核心修改：當大廳人員有名單變動（有人上線或下線），立刻觸發排行榜刷新
+        fetchOnlineLeaderboard(users);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // 成功連線後，舉手告訴大家「我來了，這是我的名字」
           await channel.track({
             id: userId,
             nickname: myNickname,
@@ -78,21 +75,33 @@ export default function Home() {
         }
       });
 
-    // 關閉網頁時自動斷開連線
     return () => { channel.unsubscribe(); };
-  }, [userId, myNickname]); // 依賴項加上 myNickname，這樣你改名時大廳也會跟著變！
+  }, [userId, myNickname]);
 
-  // === 3. 抓取真實排行榜 ===
-  const fetchLeaderboard = async () => {
+  // === 3. 抓取「僅限線上夥伴」的真實排行榜 ===
+  const fetchOnlineLeaderboard = async (currentOnlineUsers?: any[]) => {
+    // 優先使用最新同步到的線上名單，若無則使用目前的狀態值
+    const targetUsers = currentOnlineUsers || onlineUsers;
+    
+    if (targetUsers.length === 0) {
+      setLeaderboard([]);
+      return;
+    }
+
+    // 抽出所有在線人員的 ID
+    const onlineIds = targetUsers.map(u => u.id);
+
+    // 只撈出 ID 存在於線上的那些人的資料，並依番茄數排序
     const { data } = await supabase
       .from("study_profiles")
       .select("*")
-      .order("tomatoes", { ascending: false })
-      .limit(10);
+      .in("id", onlineIds)
+      .order("tomatoes", { ascending: false });
+    
     if (data) setLeaderboard(data);
   };
 
-  // === 4. 計時器核心與「發放番茄」 ===
+  // === 4. 計時器核心 ===
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isRunning && timeLeft > 0) {
@@ -109,7 +118,7 @@ export default function Home() {
   const finishTomato = async () => {
     alert("🎉 太棒了！完成一次專注，獲得一顆 🍅！");
     const { error } = await supabase.rpc("increment_tomato", { profile_id: userId });
-    if (!error) fetchLeaderboard();
+    if (!error) fetchOnlineLeaderboard(); // 刷新
     setTimeLeft(25 * 60);
   };
 
@@ -117,7 +126,7 @@ export default function Home() {
   const handleSaveName = async () => {
     if (!newName.trim()) return;
     if (newName.length > 20) {
-      alert("名字太長囉！請保持在 20 個字以內。");
+      alert("名字太長囉！请保持在 20 個字以內。");
       return;
     }
 
@@ -127,15 +136,15 @@ export default function Home() {
       .eq("id", userId);
 
     if (!error) {
-      setMyNickname(newName.trim()); // 這裡會自動觸發上方 useEffect，大廳名字秒變！
+      setMyNickname(newName.trim());
       setIsEditingName(false);
-      fetchLeaderboard();
+      // 這裡不需要手動刷新排行榜，因為 myNickname 變更會觸發 Presence 重新廣播，進而自動觸發 sync 刷新排行榜！
     } else {
       alert("更新失敗，請稍後再試！");
     }
   };
 
-  // === 6. 按鈕控制與格式化 ===
+  // === 6. 按鈕控制 ===
   const toggleTimer = () => setIsRunning(!isRunning);
   const resetTimer = () => {
     setIsRunning(false);
@@ -152,7 +161,7 @@ export default function Home() {
       {/* 頂部標題區 */}
       <header className="flex flex-col gap-4 mt-8 mb-2">
         <div className="flex items-center gap-4 text-slate-400 text-sm font-medium tracking-widest">
-        
+          <span>—— AI × 開發 · 2026</span>
         </div>
         <h1 className="text-6xl font-bold tracking-tight text-slate-700" style={{ fontFamily: 'serif' }}>
           ZenStudy<span className="text-indigo-400">.</span>
@@ -205,7 +214,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ========== 全新：即時大廳 ========== */}
+      {/* 即時大廳 */}
       <div className="flex items-center justify-between mt-4">
         <h2 className="text-2xl font-bold text-slate-700 flex items-center gap-2">
           <Users size={24} className="text-indigo-400" />
@@ -226,18 +235,17 @@ export default function Home() {
           ))
         )}
       </section>
-      {/* ================================== */}
 
-      {/* 排行榜與大廳標題 */}
+      {/* 排行榜區 */}
       <div className="flex items-center justify-between mt-4 border-b border-slate-200/50 pb-4">
-        <h2 className="text-2xl font-bold text-slate-700">今日排行榜</h2>
-        <span className="text-sm text-slate-500">依番茄數排序</span>
+        <h2 className="text-2xl font-bold text-slate-700">今日在線排行榜</h2>
+        <span className="text-sm text-slate-500">僅顯示目前在線夥伴</span>
       </div>
 
       {/* 真實排行榜列表 */}
       <section className="flex flex-col gap-4 pb-12">
         {leaderboard.length === 0 ? (
-          <div className="text-center py-10 text-slate-400">目前還沒有人獲得番茄，來當第一個吧！</div>
+          <div className="text-center py-10 text-slate-400">大廳目前空空的，或者還沒有人在線獲得番茄喔！</div>
         ) : (
           leaderboard.map((user, index) => (
             <div key={user.id} className="bg-white/70 backdrop-blur-md border border-white/80 shadow-sm rounded-[2rem] p-6 flex items-center justify-between transition-all hover:bg-white/90">
@@ -246,7 +254,6 @@ export default function Home() {
                   {index + 1}
                 </div>
                 
-                {/* 名字與編輯按鈕 */}
                 <div className="flex items-center gap-3">
                   <h3 className="font-bold text-slate-700 text-xl">
                     {user.nickname}
@@ -275,7 +282,7 @@ export default function Home() {
         )}
       </section>
 
-      {/* ========== 改名彈出視窗 (Modal) ========== */}
+      {/* 改名彈出視窗 */}
       {isEditingName && (
         <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-sm border border-slate-100 transform transition-all animate-in fade-in zoom-in-95 duration-200">
