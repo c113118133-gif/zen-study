@@ -238,7 +238,7 @@ export default function Home() {
 
       {/* 排行榜區 */}
       <div className="flex items-center justify-between mt-4 border-b border-slate-200/50 pb-4">
-        <h2 className="text-2xl font-bold text-slate-700">今日在線排行榜</h2>
+        <h2 className="text-2xl font-bold text-slate-700">在線排行榜</h2>
         <span className="text-sm text-slate-500">僅顯示目前在線夥伴</span>
       </div>
 
